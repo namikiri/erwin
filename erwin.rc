@@ -1,0 +1,32 @@
+#include "winver.h"
+
+IDI_ICON1		ICON		DISCARDABLE	"assets/nyan.ico"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,3,3,7
+ PRODUCTVERSION 0,2,0,2
+ FILEFLAGS 0x0L
+ FILEFLAGSMASK 0x3fL
+ FILEOS 0x00040004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904E4"
+        BEGIN
+            VALUE "CompanyName", "IDENT Software"
+            VALUE "FileDescription", "Erwin Chat Bot"
+            VALUE "FileVersion", "1.3.3.7"
+            VALUE "LegalCopyright", "\251 IDENT Software"
+            VALUE "InternalName", "erwind.exe"
+            VALUE "OriginalFilename", "erwin.exe"
+            VALUE "ProductName", "Erwin: Interactive bot daemon for Galaxy chat"
+            VALUE "ProductVersion", "0.2"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 1049, 1252
+    END
+END
