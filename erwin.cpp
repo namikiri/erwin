@@ -42,6 +42,7 @@ Erwin::Erwin(QSettings *s, QObject *parent) : QObject(parent)
     bannedDeferred = 0; bannedDirectly = 0; bannedForPrison = 0;
     botCalls = 0; autobanEnabled = false; autokickEnabled = false;
     prisonbanEnabled = true; isReconnecting = false;
+    lastPrisonedMe = QString();
 
     log ("Setting up notifier...");
     if (statsDelay > 0)
@@ -63,6 +64,10 @@ Erwin::Erwin(QSettings *s, QObject *parent) : QObject(parent)
 
 void Erwin::processGalaxyCommand(QString message)
 {
+
+    if (isReconnecting) // it receives junk commands because of async socket
+        return;
+
     QStringList commands = message.split(' ', QString::SkipEmptyParts);
 
     if (commands.count() == 0)
@@ -180,6 +185,14 @@ void Erwin::processGalaxyCommand(QString message)
         return;
     }
 
+
+    if (commands[0] == "475")
+    {
+        log ("This character is prisoned, OK, switching to another...");
+        reconnect(true);
+        return;
+    }
+
     if (commands[0] == "PRIVMSG")
     {
         if (message.indexOf(userNick) > -1)
@@ -190,6 +203,13 @@ void Erwin::processGalaxyCommand(QString message)
             processAdminCommand(message.mid(message.indexOf(":")+1), id2nick(commands[1]));
         }
 
+        /// REMOVE ME PLZ
+
+        if (message.indexOf("сам пидор") > -1)
+        {
+            lastPidor = id2nick(commands[1]);
+        }
+
         return;
     }
 
@@ -198,6 +218,7 @@ void Erwin::processGalaxyCommand(QString message)
         processUserList(message.mid(message.indexOf(":")+1));
         return;
     }
+
 
     if (commands[0] == "SLEEP" || commands[0] == "PART")
     {
@@ -232,7 +253,10 @@ void Erwin::processGalaxyCommand(QString message)
         banRemotely(idToBan);
 
         if (reconnectOnPrison)
+        {
+            lastPrisonedMe = idToBan;
             reconnect(true);
+        }
         else
             socket->close();
 
@@ -482,7 +506,7 @@ void Erwin::processAdminCommand(QString message, QString senderNick)
 
             if (action == "reconnect")
             {
-                say(tr("%1, BOTHUNTER will disconnect and connect again, please wait...").arg(senderNick));
+                say(tr("%1, Erwin will disconnect and connect again, please wait...").arg(senderNick));
                 reconnect(false);
                 return;
             }
@@ -631,6 +655,76 @@ void Erwin::processAdminCommand(QString message, QString senderNick)
             say(tr("%1, usage: /list {nicks|clans}").arg(senderNick));
             return;
         }
+
+        if (command == "pidorate")
+        {
+            QString action = message.mid(message.indexOf(" ")).trimmed();
+            action = action.mid(0, action.indexOf(' '));
+
+            if (action == "on")
+            {
+                if (pidoringPhrases.count() == 0)
+                {
+                    say(tr("%1, no pidoring phrases configured, cannot enable.").arg(senderNick));
+                    return;
+                }
+
+                if (pidorate)
+                {
+                    say(tr("%1, pidorating is already enabled").arg(senderNick));
+                }
+                else
+                {
+                    if (lastPidor.isEmpty())
+                        say(tr("%1, no nickname of current pidor").arg(senderNick));
+                    else
+                    {
+                        pidorate = true;
+                        sayPidor();
+                        say(tr("%1, pidorating enabled successfully").arg(senderNick));
+                    }
+                }
+                return;
+            }
+
+            if (action == "off")
+            {
+                if (pidorate)
+                {
+                    pidorate = false;
+                    say(tr("%1, pidorating disabled successfully").arg(senderNick));
+                }
+                else
+                    say(tr("%1, pidorating is already disabled or could not activate").arg(senderNick));
+
+                return;
+            }
+
+            if (action == "delay")
+            {
+                QStringList cmds = message.split(' ', QString::SkipEmptyParts);
+                if (cmds.count() < 3)
+                {
+                    say(tr("%1, usage: /pidorate delay [delay_time]").arg(senderNick));
+                    return;
+                }
+
+                uint delay = cmds.at(2).toUInt();
+                if (delay > 0)
+                {
+                    pidorateDelay = delay;
+                    say(tr("%1, pidorating delay time is set to %2 ms.").arg(senderNick).arg(delay));
+                }
+                else
+                    say(tr("%1, bad pidorating delay time!").arg(senderNick));
+
+                return;
+            }
+
+            say(tr("%1, usage: /pidorate {on|off|delay} [delay_time]").arg(senderNick));
+
+            return;
+        }
     }
 }
 
@@ -664,6 +758,17 @@ void Erwin::processUserList(QString userlist)
                     .arg(u.id), "user");
 
         users.append(u);
+
+        if (!lastPrisonedMe.isEmpty() && u.id == lastPrisonedMe)
+        {
+            log (QString ("Found a dickhead that prisoned me (UID %1), banning this scum!")
+                 .arg(u.id), "user");
+
+            sendMessage("BAN "+u.id);
+            say(tr("Go fcuk yourself, %1.").arg(u.nick));
+
+            lastPrisonedMe.clear();
+        }
     }
 }
 
@@ -951,6 +1056,34 @@ void Erwin::loadSettings()
         }
     }
 
+    ///
+    /// Pidoring phrases
+    ///
+    QString phrasesFile = settings->value("pidoring_phrases", "").toString();
+    if (phrasesFile.isEmpty())
+    {
+        log ("No pidoring phrases file.", "conf");
+    }
+    else
+    {
+        QFile rcFile (phrasesFile);
+
+        log ("Loading pidoring phrases from "+phrasesFile, "conf");
+        if (rcFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        {
+            QTextStream textStream(&rcFile);
+
+            while (!textStream.atEnd())
+                pidoringPhrases.append(textStream.readLine());
+
+            rcFile.close();
+        }
+        else
+        {
+            log ("Could not load pidoring phrases from "+phrasesFile, "conf");
+        }
+    }
+
     settings->endGroup();
 
 
@@ -988,6 +1121,14 @@ void Erwin::loadSettings()
     reconnectOnLoss   = settings->value("reconnect_on_loss", false).toBool();
     reconnectDelay    = settings->value("reconnect_delay", 5000).toUInt();
     silentMode        = settings->value("silent_mode", false).toBool();
+    pidorate          = settings->value("pidorate", false).toBool();
+    pidorateDelay     = settings->value("pidorate_delay", 60000).toUInt();
+
+    if (pidoringPhrases.count() == 0)
+    {
+        log ("No pidoring phrases, will not enable pidoring!", "conf");
+        pidorate = false;
+    }
 
     settings->endGroup();
 }
@@ -1112,8 +1253,6 @@ void Erwin::socketClosed()
         else
             connectAgain();
 
-        isReconnecting = false;
-
     }
     else
         log ("Socket died.");
@@ -1122,6 +1261,8 @@ void Erwin::socketClosed()
 void Erwin::socketConnected()
 {
     log ("Socket is connected, starting init process!");
+
+    isReconnecting = false;
     sendMessage(QString(":ru IDENT %1 -2 4030 1 2 :GALA").arg(GALAXY_HASH_VERSION)); // in galaxyhash
 }
 
@@ -1176,4 +1317,15 @@ void Erwin::connectAgain()
 {
     log ("Reconnecting: opening the socket again.");
     socket->connectToHost(chatServerAddress, chatServerPort);
+}
+
+void Erwin::sayPidor()
+{
+    if (pidorate && pidoringPhrases.count() > 0)
+    {
+        QString phrase = pidoringPhrases.at(rand() % pidoringPhrases.count() - 1);
+
+        say(QString(phrase).arg(lastPidor));
+        QTimer::singleShot(rand()% pidorateDelay + 5000, this, SLOT(sayPidor()));
+    }
 }

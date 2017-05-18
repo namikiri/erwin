@@ -22,7 +22,7 @@ BEGIN
             VALUE "InternalName", "erwind.exe"
             VALUE "OriginalFilename", "erwin.exe"
             VALUE "ProductName", "Erwin: Interactive bot daemon for Galaxy chat"
-            VALUE "ProductVersion", "0.2"
+            VALUE "ProductVersion", "0.3"
         END
     END
     BLOCK "VarFileInfo"

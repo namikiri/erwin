@@ -50,6 +50,8 @@ private:
     QString adminId;
     QString companionId;
     QString contactNick;
+    QString lastPidor;
+    QString lastPrisonedMe;
 
     uint statsDelay;
 
@@ -59,6 +61,7 @@ private:
     uint bannedForPrison;
     uint botCalls;
     uint reconnectDelay;
+    uint pidorateDelay;
     bool logToFile;
     bool autobanEnabled;
     bool autokickEnabled;
@@ -66,6 +69,7 @@ private:
     bool reconnectOnPrison;
     bool reconnectOnLoss;
     bool silentMode;
+    bool pidorate;
 
     QString chatServerAddress;
     uint chatServerPort;
@@ -83,6 +87,7 @@ private:
     QList <QRegExp *> clanPatterns;
     QList <GalaxyUser> users;
     QStringList recoveries;
+    QStringList pidoringPhrases;
 
     QSettings *settings;
 
@@ -132,6 +137,8 @@ private slots:
     void sendStatistics();
     void restartDaemon();
     void connectAgain();
+
+    void sayPidor();
 };
 
 #endif // ERWIN_H
